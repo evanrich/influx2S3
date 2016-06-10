@@ -35,16 +35,16 @@ CLIENT = boto3.client(
 )
 
 
-def backup(databaseName):
+def backup(database_name):
 
     # backup
-    call(["influxd", "backup", "-database", databaseName, BACKUP_PATH])
+    call(["influxd", "backup", "-database", database_name, BACKUP_PATH])
 
     # create tar file
     # time = str(int(time.time()))
 
-    tar = tarfile.open(BACKUP_PATH + databaseName + '_' +
-                       BACKUP_TIME + '.tar.gz', "w:gz")
+    tar = tarfile.open(BACKUP_PATH + database_name + '_'
+                       + BACKUP_TIME + '.tar.gz', "w:gz")
     for name in glob.glob(BACKUP_PATH + "*.00"):
         # print os.path.basename(name)
         tar.add(name, arcname=os.path.basename(name))
@@ -53,8 +53,8 @@ def backup(databaseName):
     # upload backup
     archive_path = max(glob.iglob(BACKUP_PATH + '*.gz'), key=os.path.getctime)
     archive_name = os.path.basename(archive_path)
-    CLIENT.upload_file(archive_path, BACKUP_BUCKET, UPLOAD_FOLDER + '/' +
-                       archive_name)
+    CLIENT.upload_file(archive_path, BACKUP_BUCKET, UPLOAD_FOLDER + '/'
+                       + archive_name)
 
     # cleanup
     files = glob.glob(BACKUP_PATH + '*')
@@ -63,41 +63,41 @@ def backup(databaseName):
     return;
 
 
-def restore(backupToRestore, downloadPath, databaseName):
-    print "Downloading restore point: %s" % backupToRestore
+def restore(backup_to_restore, download_path, database_name):
+    print "Downloading restore point: %s" % backup_to_restore
 
-    if not os.path.exists(downloadPath + "/" + databaseName):
-        os.makedirs(downloadPath + "/" + databaseName)
+    if not os.path.exists(download_path + "/" + database_name):
+        os.makedirs(download_path + "/" + database_name)
 
-    CLIENT.download_file(BACKUP_BUCKET, backupToRestore, downloadPath + '/' +
-                         'InfluxRestore.tar.gz')
+    CLIENT.download_file(BACKUP_BUCKET, backup_to_restore, download_path + '/'
+                         + 'InfluxRestore.tar.gz')
 
     # untar backup
-    archive_path = max(glob.iglob(downloadPath + "/" + '*.gz'),
+    archive_path = max(glob.iglob(download_path + "/" + '*.gz'),
                        key=os.path.getctime)
     archive_name = os.path.basename(archive_path)
 
-    print BACKUP_PATH
+    print download_path
     print "Extracting Archive..."
-    os.chdir(downloadPath)
+    os.chdir(download_path)
     tar = tarfile.open('InfluxRestore.tar.gz')
     tar.extractall()
     tar.close()
 
     # cleanup
-    files = glob.glob(BACKUP_PATH + '*.gz')
+    files = glob.glob(download_path + '*.gz')
     for f in files:
         os.remove(f)
 
     # restore
     print "Stopping influxD process"
     call(["service", "influxdb", "stop"])
-    print "Restoring backup from %s" % BACKUP_PATH
+    print "Restoring backup from %s" % download_path
     print "Restoring metadata..."
-    call(["influxd", "restore", "-metadir", INFLUXDB_META_DIR, downloadPath])
+    call(["influxd", "restore", "-metadir", INFLUXDB_META_DIR, download_path])
     print "Restoring database..."
     call(["influxd", "restore", "-database", databaseName, "-datadir",
-         INFLUXDB_DATA_DIR, downloadPath])
+         INFLUXDB_DATA_DIR, download_path])
     print "Fixing permissions (influxdb/influxdb)..."
     call(["chown", "-R", "influxdb:influxdb", INFLUXDB_DATA_DIR])
     print "Starting InfluxD process back up"
@@ -106,13 +106,13 @@ def restore(backupToRestore, downloadPath, databaseName):
     # cleanup
 
     # remove restore folder and contents
-    shutil.rmtree(BACKUP_PATH)
+    shutil.rmtree(download_path)
 
 
-def restorepoints(databaseName):
+def restorepoints(database_name):
     to_zone = tz.gettz('America/Los_Angeles')
-    objects = CLIENT.list_objects(Bucket=BACKUP_BUCKET, Prefix='influxdb/' +
-                                  databaseName)
+    objects = CLIENT.list_objects(Bucket=BACKUP_BUCKET, Prefix='influxdb/'
+                                  + database_name)
 
     for item in objects['Contents']:
         print(item['LastModified'].astimezone(to_zone).strftime('%Y-%m-%d_%H%M%S %Z') + " " + item['Key'])
