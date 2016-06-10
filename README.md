@@ -48,4 +48,10 @@ Restore a database:
 4. Push to the branch: `git push origin my-new-feature`
 5. Submit a pull request :D
 
+
+## TODO
+1. Move AWS credentials out to boto config or aws credentials file
+2. Add path argument to backup to specifiy where to save backup during upload
+
+
 </snippet>
