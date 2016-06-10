@@ -30,8 +30,8 @@ SECRET_KEY = ''
 UPLOAD_FOLDER = 'influxdb'
 CLIENT = boto3.client(
     's3',
-    aws_access_key_id = ACCESS_KEY_ID,
-    aws_secret_access_key = SECRET_KEY,
+    aws_access_key_id=ACCESS_KEY_ID,
+    aws_secret_access_key=SECRET_KEY,
 )
 
 
@@ -58,9 +58,9 @@ def backup(database_name):
 
     # cleanup
     files = glob.glob(BACKUP_PATH + '*')
-    for f in files:
-        os.remove(f)
-    return;
+    for file_name in files:
+        os.remove(file_name)
+    return
 
 
 def restore(backup_to_restore, download_path, database_name):
@@ -73,9 +73,9 @@ def restore(backup_to_restore, download_path, database_name):
                          + 'InfluxRestore.tar.gz')
 
     # untar backup
-    archive_path = max(glob.iglob(download_path + "/" + '*.gz'),
-                       key=os.path.getctime)
-    archive_name = os.path.basename(archive_path)
+    # archive_path = max(glob.iglob(download_path + "/" + '*.gz'),
+    #                    key=os.path.getctime)
+    # archive_name = os.path.basename(archive_path)
 
     print download_path
     print "Extracting Archive..."
@@ -86,8 +86,8 @@ def restore(backup_to_restore, download_path, database_name):
 
     # cleanup
     files = glob.glob(download_path + '*.gz')
-    for f in files:
-        os.remove(f)
+    for file_name in files:
+        os.remove(file_name)
 
     # restore
     print "Stopping influxD process"
@@ -96,8 +96,8 @@ def restore(backup_to_restore, download_path, database_name):
     print "Restoring metadata..."
     call(["influxd", "restore", "-metadir", INFLUXDB_META_DIR, download_path])
     print "Restoring database..."
-    call(["influxd", "restore", "-database", databaseName, "-datadir",
-         INFLUXDB_DATA_DIR, download_path])
+    call(["influxd", "restore", "-database", database_name, "-datadir", \
+        INFLUXDB_DATA_DIR, download_path])
     print "Fixing permissions (influxdb/influxdb)..."
     call(["chown", "-R", "influxdb:influxdb", INFLUXDB_DATA_DIR])
     print "Starting InfluxD process back up"
@@ -107,6 +107,7 @@ def restore(backup_to_restore, download_path, database_name):
 
     # remove restore folder and contents
     shutil.rmtree(download_path)
+    return
 
 
 def restorepoints(database_name):
@@ -115,8 +116,8 @@ def restorepoints(database_name):
                                   + database_name)
 
     for item in objects['Contents']:
-        print(item['LastModified'].astimezone(to_zone).strftime('%Y-%m-%d_%H%M%S %Z') + " " + item['Key'])
-    return;
+        print item['LastModified'].astimezone(to_zone).strftime('%Y-%m-%d_%H%M%S %Z') + " " + item['Key']
+    return
 
 
 def main(argv):
@@ -135,13 +136,13 @@ def main(argv):
                         help='Get a list of available backups from S3')
     args = parser.parse_args()
 
-    if (args.backup is not None and args.restore is None):
+    if args.backup is not None and args.restore is None:
         print "backup has been set to %s" % args.backup
         print "destination has been set to %s" % args.path
         backup(args.backup)
 
-    if (args.restore is not None and args.backup is None):
-        if (args.databasename is not None):
+    if args.restore is not None and args.backup is None:
+        if args.databasename is not None:
 
             download_path = args.path + "/" + args.databasename
 
@@ -152,10 +153,10 @@ def main(argv):
             print "Downloading and Restoring %s from S3" % args.restore
             restore(args.restore, download_path, args.databasename)
 
-    if (args.backup is not None and args.restore is not None):
+    if args.backup is not None and args.restore is not None:
         print "You cannot backup and restore at the same time!"
 
-    if (args.backup is None and args.restore is None and args.restorepoints is not None):
+    if args.backup is None and args.restore is None and args.restorepoints is not None:
         restorepoints(args.databasename)
 
 
