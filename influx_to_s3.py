@@ -4,12 +4,12 @@
 Description:  Script to backup influxdb and save to s3
 Dependency:   Boto, installed via apt-get install python-boto
 Author:  Evan Richardson
+Modifications: Josep Pla
 Date:  160527
 Version: 1.0
 '''
 
 import argparse
-import boto3
 import os
 import glob
 import tarfile
@@ -17,6 +17,7 @@ import time
 import sys
 import shutil
 from subprocess import call
+import boto3
 from dateutil import tz
 
 # some variables we'll use
@@ -36,6 +37,7 @@ CLIENT = boto3.client(
 
 
 def backup(database_name):
+    """Creates a backup of the given database name."""
 
     # backup
     call(["influxd", "backup", "-database", database_name, BACKUP_PATH])
@@ -64,6 +66,7 @@ def backup(database_name):
 
 
 def restore(backup_to_restore, download_path, database_name):
+    """Restores a database."""
     print "Downloading restore point: %s" % backup_to_restore
 
     if not os.path.exists(download_path + "/" + database_name):
@@ -111,7 +114,8 @@ def restore(backup_to_restore, download_path, database_name):
 
 
 def restorepoints(database_name):
-    to_zone = tz.gettz('America/Los_Angeles')
+    """Returns a list of the existewnt restore points inside the S3 bucket"""
+    to_zone = tz.gettz('UTC')
     objects = CLIENT.list_objects(Bucket=BACKUP_BUCKET, Prefix='influxdb/'
                                   + database_name)
 
@@ -121,6 +125,7 @@ def restorepoints(database_name):
 
 
 def main(argv):
+    """Main script function."""
 
     parser = argparse.ArgumentParser(description='Script to backup or restore' +
                                      'InfluxDB backups to/from AWS S3.')
