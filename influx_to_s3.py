@@ -4,44 +4,74 @@
 Description:  Script to backup influxdb and save to s3
 Dependency:   Boto, installed via apt-get install python-boto
 Author:  Evan Richardson
-Modifications: Josep Pla
+Modified by: Josep Pla
 Date:  160527
-Version: 1.0
+Version: 1.1
 '''
 
 import argparse
 import os
 import glob
 import tarfile
-import time
+from datetime import datetime
 import sys
 import shutil
 from subprocess import call
-import boto3
 from dateutil import tz
+import boto3
 
 # some variables we'll use
-BACKUP_PATH = '/var/tmp/restore/'
-BACKUP_TIME = str(int(time.time()))
+BACKUP_PATH = '/tmp/restore/'
+BACKUP_TIME = datetime.now().strftime('%Y-%m-%d_%H:%M')
 INFLUXDB_DATA_DIR = "/var/lib/influxdb/data"
 INFLUXDB_META_DIR = "/var/lib/influxdb/meta"
 BACKUP_BUCKET = ''
 ACCESS_KEY_ID = ''
 SECRET_KEY = ''
 UPLOAD_FOLDER = 'influxdb'
-CLIENT = boto3.client(
-    's3',
-    aws_access_key_id=ACCESS_KEY_ID,
-    aws_secret_access_key=SECRET_KEY,
-)
 
 
-def backup(database_name):
-    """Creates a backup of the given database name."""
+parser = argparse.ArgumentParser(description='Script to backup or restore' +
+                                 'InfluxDB backups to/from AWS S3.')
+parser.add_argument('-b', '--backup', type=str,
+                    help='Backup a given Database')
+parser.add_argument('-p', '--path', type=str, default='/var/tmp/',
+                    help='Location of for Database Backups')
+parser.add_argument('-r', '--restore', type=str,
+                    help='Restore a backup from S3')
+parser.add_argument('-db', '--databasename', type=str,
+                    help='DB name to restore from backup')
+parser.add_argument('-rp', '--restorepoints', action='store_true',
+                    help='Get a list of available backups from S3')
+parser.add_argument('-pr', '--profile', type=str, default='',
+                    help='AWS credentials profile to use')
+parser.add_argument('-ret', '--retentionpolicy', type=str,
+                    help='retention policy to backup')
+args = parser.parse_args()
+
+# Generating s3 client depending on if the keys are specified inside the script, or passed
+# as an awscli profile or using an AWS INSTANCE IAM ROLE.
+
+if args.profile == '' and ACCESS_KEY_ID == '':
+    CLIENT = boto3.client('s3')
+elif args.profile != '':
+    boto3.setup_default_session(profile_name=args.profile)
+    CLIENT = boto3.client('s3')
+else:
+    CLIENT = boto3.client(
+        's3',
+        aws_access_key_id=ACCESS_KEY_ID,
+        aws_secret_access_key=SECRET_KEY,
+    )
+
+
+def backup(database_name, r_policy=""):
 
     # backup
-    call(["influxd", "backup", "-database", database_name, BACKUP_PATH])
-
+    if r_policy != "":
+        call(["influxd", "backup", "-database", database_name, "-retention", r_policy, BACKUP_PATH])
+    else:
+        call(["influxd", "backup", "-database", database_name, BACKUP_PATH])
     # create tar file
     # time = str(int(time.time()))
 
@@ -66,7 +96,6 @@ def backup(database_name):
 
 
 def restore(backup_to_restore, download_path, database_name):
-    """Restores a database."""
     print "Downloading restore point: %s" % backup_to_restore
 
     if not os.path.exists(download_path + "/" + database_name):
@@ -114,8 +143,7 @@ def restore(backup_to_restore, download_path, database_name):
 
 
 def restorepoints(database_name):
-    """Returns a list of the existewnt restore points inside the S3 bucket"""
-    to_zone = tz.gettz('UTC')
+    to_zone = tz.gettz('America/Los_Angeles')
     objects = CLIENT.list_objects(Bucket=BACKUP_BUCKET, Prefix='influxdb/'
                                   + database_name)
 
@@ -125,10 +153,8 @@ def restorepoints(database_name):
 
 
 def main(argv):
-    """Main script function."""
-
     parser = argparse.ArgumentParser(description='Script to backup or restore' +
-                                     'InfluxDB backups to/from AWS S3.')
+                                 'InfluxDB backups to/from AWS S3.')
     parser.add_argument('-b', '--backup', type=str,
                         help='Backup a given Database')
     parser.add_argument('-p', '--path', type=str, default='/var/tmp/',
@@ -139,12 +165,33 @@ def main(argv):
                         help='DB name to restore from backup')
     parser.add_argument('-rp', '--restorepoints', action='store_true',
                         help='Get a list of available backups from S3')
+    parser.add_argument('-pr', '--profile', type=str, default='',
+                        help='AWS credentials profile to use')
+    parser.add_argument('-ret', '--retentionpolicy', type=str,
+                        help='retention policy to backup')
     args = parser.parse_args()
 
+    if args.profile == '' and ACCESS_KEY_ID == '':
+        CLIENT = boto3.client('s3')
+    elif args.profile != '':
+        boto3.setup_default_session(profile_name=args.profile)
+        CLIENT = boto3.client('s3')
+    else:
+        CLIENT = boto3.client(
+            's3',
+            aws_access_key_id=ACCESS_KEY_ID,
+            aws_secret_access_key=SECRET_KEY,
+        )
+
     if args.backup is not None and args.restore is None:
-        print "backup has been set to %s" % args.backup
-        print "destination has been set to %s" % args.path
-        backup(args.backup)
+        if args.retentionpolicy is None:
+            print "backup has been set to %s" % args.backup
+            print "destination has been set to %s" % args.path
+            backup(args.backup)
+        else:
+            print "backup has been set to %s" % args.backup
+            print "destination has been set to %s" % args.path
+            backup(args.backup, args.retentionpolicy)
 
     if args.restore is not None and args.backup is None:
         if args.databasename is not None:
