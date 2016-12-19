@@ -30,25 +30,6 @@ ACCESS_KEY_ID = ''
 SECRET_KEY = ''
 UPLOAD_FOLDER = 'influxdb'
 
-
-parser = argparse.ArgumentParser(description='Script to backup or restore' +
-                                 'InfluxDB backups to/from AWS S3.')
-parser.add_argument('-b', '--backup', type=str,
-                    help='Backup a given Database')
-parser.add_argument('-p', '--path', type=str, default='/var/tmp/',
-                    help='Location of for Database Backups')
-parser.add_argument('-r', '--restore', type=str,
-                    help='Restore a backup from S3')
-parser.add_argument('-db', '--databasename', type=str,
-                    help='DB name to restore from backup')
-parser.add_argument('-rp', '--restorepoints', action='store_true',
-                    help='Get a list of available backups from S3')
-parser.add_argument('-pr', '--profile', type=str, default='',
-                    help='AWS credentials profile to use')
-parser.add_argument('-ret', '--retentionpolicy', type=str,
-                    help='retention policy to backup')
-args = parser.parse_args()
-
 # Generating s3 client depending on if the keys are specified inside the script, or passed
 # as an awscli profile or using an AWS INSTANCE IAM ROLE.
 
@@ -214,4 +195,3 @@ def main(argv):
 
 if __name__ == "__main__":
     main(sys.argv[1:])
-
