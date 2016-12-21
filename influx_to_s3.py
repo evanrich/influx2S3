@@ -48,6 +48,8 @@ parser.add_argument('-pr', '--profile', type=str, default='',
                     help='AWS credentials profile to use')
 parser.add_argument('-ret', '--retentionpolicy', type=str,
                     help='retention policy to backup')
+parser.add_argument('-bkt', '--bucket', type=str,
+                    help='s3 bucket')                    
 args = parser.parse_args()
 
 # Generating s3 client depending on if the keys are specified inside the script, or passed
@@ -64,6 +66,9 @@ else:
         aws_access_key_id=ACCESS_KEY_ID,
         aws_secret_access_key=SECRET_KEY,
     )
+
+if BACKUP_BUCKET == '':
+    BACKUP_BUCKET = args.bucket
 
 
 def backup(database_name, r_policy=""):
